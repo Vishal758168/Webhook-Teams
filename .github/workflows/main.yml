@@ -1,6 +1,5 @@
 name: GitHub → Teams Notifications
 
-# <-- THIS DEFINES WHEN THE WORKFLOW RUNS -->
 on:
   push:
     branches:
@@ -14,12 +13,30 @@ jobs:
   notify:
     runs-on: windows-latest
     steps:
-      - name: Send message to Teams
-        uses: im-open/teams-notification-action@v1
-        with:
-          webhook-uri: ${{ secrets.TEAMS_WEBHOOK_URL }}
-          message: |
-            :bell: **GitHub Notification**
-            Repository: ${{ github.repository }}
-            Event: ${{ github.event_name }}
-            
+      - name: Send notification to Teams
+        env:
+          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: |
+          EVENT="${GITHUB_EVENT_NAME}"
+          REPO="${GITHUB_REPOSITORY}"
+          ACTOR="${GITHUB_ACTOR}"
+
+          if [ "$EVENT" = "push" ]; then
+            MESSAGE="**Push event** by $ACTOR to $REPO"
+          elif [ "$EVENT" = "pull_request" ]; then
+            ACTION=$(jq -r .action "$GITHUB_EVENT_PATH")
+            TITLE=$(jq -r .pull_request.title "$GITHUB_EVENT_PATH")
+            URL=$(jq -r .pull_request.html_url "$GITHUB_EVENT_PATH")
+            MESSAGE="**Pull Request $ACTION** by $ACTOR\nTitle: $TITLE\nURL: $URL"
+          elif [ "$EVENT" = "issues" ]; then
+            ACTION=$(jq -r .action "$GITHUB_EVENT_PATH")
+            TITLE=$(jq -r .issue.title "$GITHUB_EVENT_PATH")
+            URL=$(jq -r .issue.html_url "$GITHUB_EVENT_PATH")
+            MESSAGE="**Issue $ACTION** by $ACTOR\nTitle: $TITLE\nURL: $URL"
+          else
+            MESSAGE="Event: $EVENT by $ACTOR in $REPO"
+          fi
+
+          curl -H "Content-Type: application/json" \
+            -d "{\"text\": \"$MESSAGE\"}" \
+            "$TEAMS_WEBHOOK"
