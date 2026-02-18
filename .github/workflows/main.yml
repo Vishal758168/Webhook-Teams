@@ -59,7 +59,7 @@ jobs:
           $workflow = "${{ github.workflow }}"
           $repo = "${{ github.repository }}"
           $actor = "${{ github.actor }}"
-          $url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          $url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id 
           
           $message = ":x: Workflow **$workflow** failed in repository **$repo** by $actor.`nDetails: $url"
           
