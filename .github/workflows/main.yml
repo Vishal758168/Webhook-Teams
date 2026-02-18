@@ -1,32 +1,47 @@
+name: GitHub → Teams Notifications
+
+# This defines when the workflow runs
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, closed, merged]
+  issues:
+    types: [opened, closed]
+
 jobs:
   notify:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Send notification to Teams
         env:
           TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        shell: pwsh
         run: |
-          EVENT="${GITHUB_EVENT_NAME}"
-          REPO="${GITHUB_REPOSITORY}"
-          ACTOR="${GITHUB_ACTOR}"
+          $event = "${env:GITHUB_EVENT_NAME}"
+          $repo = "${env:GITHUB_REPOSITORY}"
+          $actor = "${env:GITHUB_ACTOR}"
 
-          if [ "$EVENT" = "push" ]; then
-            MESSAGE="**Push event** by $ACTOR to $REPO"
-          elif [ "$EVENT" = "pull_request" ]; then
-            ACTION=$(jq -r .action "$GITHUB_EVENT_PATH")
-            TITLE=$(jq -r .pull_request.title "$GITHUB_EVENT_PATH")
-            URL=$(jq -r .pull_request.html_url "$GITHUB_EVENT_PATH")
-            MESSAGE="**Pull Request $ACTION** by $ACTOR\nTitle: $TITLE\nURL: $URL"
-          elif [ "$EVENT" = "issues" ]; then
-            ACTION=$(jq -r .action "$GITHUB_EVENT_PATH")
-            TITLE=$(jq -r .issue.title "$GITHUB_EVENT_PATH")
-            URL=$(jq -r .issue.html_url "$GITHUB_EVENT_PATH")
-            MESSAGE="**Issue $ACTION** by $ACTOR\nTitle: $TITLE\nURL: $URL"
-          else
-            MESSAGE="Event: $EVENT by $ACTOR in $REPO"
-          fi
+          if ($event -eq "push") {
+              $message = "**Push event** by $actor to $repo"
+          }
+          elseif ($event -eq "pull_request") {
+              $json = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+              $action = $json.action
+              $title = $json.pull_request.title
+              $url = $json.pull_request.html_url
+              $message = "**Pull Request $action** by $actor`nTitle: $title`nURL: $url"
+          }
+          elseif ($event -eq "issues") {
+              $json = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+              $action = $json.action
+              $title = $json.issue.title
+              $url = $json.issue.html_url
+              $message = "**Issue $action** by $actor`nTitle: $title`nURL: $url"
+          }
+          else {
+              $message = "Event: $event by $actor in $repo"
+          }
 
-          curl -H "Content-Type: application/json" \
-            -d "{\"text\": \"$MESSAGE\"}" \
-            "$TEAMS_WEBHOOK"
-
+          Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -ContentType "application/json" -Body (@{ text = $message } | ConvertTo-Json)
