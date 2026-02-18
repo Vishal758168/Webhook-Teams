@@ -22,4 +22,4 @@ jobs:
             :bell: **GitHub Notification**
             Repository: ${{ github.repository }}
             Event: ${{ github.event_name }}
-            Actor: ${{ github.actor }}
+            
