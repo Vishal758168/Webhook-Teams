@@ -41,7 +41,7 @@ jobs:
               $url = $json.issue.html_url
               $message = "**Issue $action** by $actor`nTitle: $title`nURL: $url"
           }
-          else {
+        
               $message = "Event: $event by $actor in $repo"
           }
 
