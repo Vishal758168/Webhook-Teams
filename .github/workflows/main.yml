@@ -12,9 +12,9 @@ on:
 jobs:
   notify:
     runs-on: windows-latest
-    environment: notify-teams   # Requires approval from specific person
+    environment: notify-teams   # requires approval from specific person
     steps:
-      - name: Send notification to Teams for events
+      - name: Send normal notification to Teams
         env:
           TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
         shell: pwsh
@@ -24,7 +24,7 @@ jobs:
           $actor = "${env:GITHUB_ACTOR}"
 
           if ($event -eq "push") {
-              $message = "**Push event** by $actor to $ro"
+              $message = "**Push event** by $actor to $rep
           }
           elseif ($event -eq "pull_request") {
               $json = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
@@ -49,18 +49,20 @@ jobs:
   notify-on-failure:
     runs-on: windows-latest
     needs: notify
-    if: failure()  # Only run if the previous job failed
+    if: always()  # Run regardless of success/failure
     steps:
       - name: Send failure notification to Teams
         env:
           TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
         shell: pwsh
         run: |
-          $workflow = "${{ github.workflow }}"
-          $repo = "${{ github.repository }}"
-          $actor = "${{ github.actor }}"
-          $url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id 
-          
-          $message = ":x: Workflow **$workflow** failed in repository **$repo** by $actor.`nDetails: $url"
-          
-          Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -ContentType "application/json" -Body (@{ text = $message } | ConvertTo-Json)
+          if ($env:GITHUB_JOB_STATUS -ne "success") {
+              $workflow = "${{ github.workflow }}"
+              $repo = "${{ github.repository }}"
+              $actor = "${{ github.actor }}"
+              $url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+              $message = ":x: Workflow **$workflow** failed in repository **$repo** by $actor.`nDetails: $url"
+
+              Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -ContentType "application/json" -Body (@{ text = $message } | ConvertTo-Json)
+          }
