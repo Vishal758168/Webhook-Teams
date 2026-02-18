@@ -1,9 +1,9 @@
 jobs:
   notify:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Send message to Teams
         uses: im-open/teams-notification-action@v1
         with:
           webhook-uri: ${{ secrets.TEAMS_WEBHOOK_URL }}
-          message: "GitHub event in repo: ${{ github.repository }} - ${{ github.event_name }}"
+          message: "GitHub event in repo: ${{ Webhook-Teams }} - ${{ push }}"
