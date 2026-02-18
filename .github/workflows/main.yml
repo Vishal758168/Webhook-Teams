@@ -24,7 +24,7 @@ jobs:
           $actor = "${env:GITHUB_ACTOR}"
 
           if ($event -eq "push") {
-              $message = "**Push event** by $actor to $repo"
+              $message = "**Push event** by $actor to $ro"
           }
           elseif ($event -eq "pull_request") {
               $json = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
