@@ -1,68 +1,54 @@
-name: GitHub → Teams Notifications
+name: Notify Teams on PR Review
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
-    types: [opened, closed, merged]
-  issues:
-    types: [opened, closed]
+    types: [opened, ready_for_review]
 
 jobs:
   notify:
-    runs-on: windows-latest
-    environment: notify-teams   # requires approval from specific person
+    runs-on: ubuntu-latest
     steps:
-      - name: Send normal notification to Teams
-        env:
-          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
-        shell: pwsh
-        run: |
-          $event = "${env:GITHUB_EVENT_NAME}"
-          $repo = "${env:GITHUB_REPOSITORY}"
-          $actor = "${env:GITHUB_ACTOR}"
-
-          if ($event -eq "push") {
-              $message = "**Push event** by $actor to $rep
-          }
-          elseif ($event -eq "pull_request") {
-              $json = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
-              $action = $json.action
-              $title = $json.pull_request.title
-              $url = $json.pull_request.html_url
-              $message = "**Pull Request $action** by $actor`nTitle: $title`nURL: $url"
-          }
-          elseif ($event -eq "issues") {
-              $json = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
-              $action = $json.action
-              $title = $json.issue.title
-              $url = $json.issue.html_url
-              $message = "**Issue $action** by $actor`nTitle: $title`nURL: $url"
-          }
-          else {
-              $message = "Event: $event by $actor in $repo"
-          }
-
-          Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -ContentType "application/json" -Body (@{ text = $message } | ConvertTo-Json)
-
-  notify-on-failure:
-    runs-on: windows-latest
-    needs: notify
-    if: always()  # Run regardless of success/failure
-    steps:
-      - name: Send failure notification to Teams
-        env:
-          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
-        shell: pwsh
-        run: |
-          if ($env:GITHUB_JOB_STATUS -ne "success") {
-              $workflow = "${{ github.workflow }}"
-              $repo = "${{ github.repository }}"
-              $actor = "${{ github.actor }}"
-              $url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-              $message = ":x: Workflow **$workflow** failed in repository **$repo** by $actor.`nDetails: $url"
-
-              Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -ContentType "application/json" -Body (@{ text = $message } | ConvertTo-Json)
-          }
+      - name: Send PR to Teams
+        uses: dawidd6/action-send-webhook@v3
+        with:
+          webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          content: |
+            {
+              "type": "message",
+              "attachments": [
+                {
+                  "contentType": "application/vnd.microsoft.card.adaptive",
+                  "content": {
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "type": "AdaptiveCard",
+                    "version": "1.4",
+                    "body": [
+                      {
+                        "type": "TextBlock",
+                        "text": "PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}",
+                        "weight": "Bolder",
+                        "size": "Medium"
+                      },
+                      {
+                        "type": "TextBlock",
+                        "text": "Opened by @${{ github.event.pull_request.user.login }}",
+                        "isSubtle": true,
+                        "spacing": "None"
+                      }
+                    ],
+                    "actions": [
+                      {
+                        "type": "Action.OpenUrl",
+                        "title": "Approve",
+                        "url": "${{ github.event.pull_request.html_url }}/reviews/new?event=APPROVE"
+                      },
+                      {
+                        "type": "Action.OpenUrl",
+                        "title": "Request Changes",
+                        "url": "${{ github.event.pull_request.html_url }}/reviews/new?event=REQUEST_CHANGES"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
