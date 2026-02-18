@@ -1,6 +1,5 @@
 name: GitHub → Teams Notifications
 
-# This defines when the workflow runs
 on:
   push:
     branches:
@@ -13,9 +12,9 @@ on:
 jobs:
   notify:
     runs-on: windows-latest
-    environment: notify-teams
+    environment: notify-teams   # Requires approval from specific person
     steps:
-      - name: Send notification to Teams
+      - name: Send notification to Teams for events
         env:
           TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
         shell: pwsh
@@ -41,8 +40,27 @@ jobs:
               $url = $json.issue.html_url
               $message = "**Issue $action** by $actor`nTitle: $title`nURL: $url"
           }
-        
+          else {
               $message = "Event: $event by $actor in $repo"
           }
 
+          Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -ContentType "application/json" -Body (@{ text = $message } | ConvertTo-Json)
+
+  notify-on-failure:
+    runs-on: windows-latest
+    needs: notify
+    if: failure()  # Only run if the previous job failed
+    steps:
+      - name: Send failure notification to Teams
+        env:
+          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        shell: pwsh
+        run: |
+          $workflow = "${{ github.workflow }}"
+          $repo = "${{ github.repository }}"
+          $actor = "${{ github.actor }}"
+          $url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          $message = ":x: Workflow **$workflow** failed in repository **$repo** by $actor.`nDetails: $url"
+          
           Invoke-RestMethod -Uri $env:TEAMS_WEBHOOK -Method Post -ContentType "application/json" -Body (@{ text = $message } | ConvertTo-Json)
